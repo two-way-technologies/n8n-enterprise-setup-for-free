@@ -1,0 +1,544 @@
+version: "3.8"
+
+services:
+  # ────────────────────────────────
+  # n8n Main Instance (Queue Mode) - Optimized for GCP c2-standard-4
+  # ────────────────────────────────
+  n8n-main:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n_main
+    restart: unless-stopped
+    user: "1000:1000"  # Non-root user for security
+
+    env_file:
+      - .env
+
+    environment:
+      # Core instance settings
+      N8N_HOST: ${N8N_HOST:-2way.tech}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-https}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-https://2way.tech}
+      WEBHOOK_URL: ${WEBHOOK_URL:-https://2way.tech/}
+      GENERIC_TIMEZONE: ${TIMEZONE:-Asia/Kolkata}
+
+      # Queue Mode Configuration (Main Instance)
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_BULL_REDIS_DB: 0
+      QUEUE_HEALTH_CHECK_ACTIVE: "true"
+      QUEUE_HEALTH_CHECK_PORT: 5679
+
+      # Performance & Features - Optimized for c2-standard-4
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_RUNNERS_MODE: "own"
+      N8N_METRICS: "true"
+      N8N_METRICS_PREFIX: "n8n_main_"
+      N8N_CONCURRENCY_PRODUCTION: 20
+
+      # Security & privacy
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "true"
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+
+      # External GCP CloudSQL PostgreSQL Database Configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: ${GCP_CLOUDSQL_HOST}
+      DB_POSTGRESDB_PORT: ${GCP_CLOUDSQL_PORT:-5432}
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n-postgres}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n-postgres}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SSL_MODE: ${GCP_CLOUDSQL_SSL_MODE:-require}
+      DB_POSTGRESDB_POOL_SIZE: 25
+      DB_POSTGRESDB_POOL_SIZE_MAX: 75
+
+      # Email/SMTP configuration
+      N8N_EMAIL_MODE: smtp
+      N8N_SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      N8N_SMTP_PORT: ${SMTP_PORT:-587}
+      N8N_SMTP_USER: ${GMAIL_SMTP_USER}
+      N8N_SMTP_PASS: ${GMAIL_SMTP_PASS}
+      N8N_SMTP_SSL: "false"
+      N8N_SMTP_STARTTLS: "true"
+      N8N_SMTP_SENDER: ${GMAIL_SMTP_USER}
+
+      # Logging - Enhanced for production
+      N8N_LOG_LEVEL: ${N8N_LOG_LEVEL:-info}
+      N8N_LOG_OUTPUT: ${N8N_LOG_OUTPUT:-console,file}
+      N8N_LOG_FILE_LOCATION: /home/node/.n8n/logs/
+      N8N_LOG_FILE_COUNT_MAX: 10
+      N8N_LOG_FILE_SIZE_MAX: 16
+
+      # Custom settings - Optimized for production
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
+      N8N_CUSTOM_EXTENSIONS: /home/node/.n8n/custom
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      N8N_BINARY_DATA_TTL: 1440
+      N8N_BINARY_DATA_STORAGE_PATH: /home/node/.n8n/binaryData
+
+      # High-volume execution settings - Optimized for c2-standard-4
+      EXECUTIONS_DATA_SAVE_ON_ERROR: "all"
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: "all"
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 168
+      EXECUTIONS_TIMEOUT: 3600
+      EXECUTIONS_TIMEOUT_MAX: 7200
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - n8n_logs:/home/node/.n8n/logs
+      - n8n_custom:/home/node/.n8n/custom
+      - n8n_binary:/home/node/.n8n/binaryData
+
+    ports:
+      - "5678:5678"
+      - "5679:5679"  # Health check port
+
+    networks:
+      - n8n_network
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          memory: 6G  # Increased for c2-standard-4
+          cpus: '2.0'
+        reservations:
+          memory: 3G
+          cpus: '1.0'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: false  # n8n needs write access for workflows
+    tmpfs:
+      - /tmp:noexec,nosuid,size=512m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "10"
+
+  # ────────────────────────────────
+  # n8n Worker Instances (Scalable) - Optimized for c2-standard-4
+  # ────────────────────────────────
+  n8n-worker:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    user: "1000:1000"  # Non-root user for security
+
+    env_file:
+      - .env
+
+    environment:
+      # Worker Mode Configuration
+      N8N_WORKERS_ENABLED: "true"
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_BULL_REDIS_DB: 0
+      QUEUE_HEALTH_CHECK_ACTIVE: "true"
+      QUEUE_HEALTH_CHECK_PORT: 5679
+
+      # Worker-specific settings - Optimized for 4 CPU cores
+      N8N_WORKERS_CONCURRENCY: ${N8N_WORKERS_CONCURRENCY:-15}
+      GENERIC_TIMEZONE: ${TIMEZONE:-Asia/Kolkata}
+      N8N_CONCURRENCY_PRODUCTION: 15
+
+      # Performance settings
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_RUNNERS_MODE: "own"
+      N8N_METRICS: "true"
+      N8N_METRICS_PREFIX: "n8n_worker_"
+
+      # Security & privacy
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+
+      # External GCP CloudSQL PostgreSQL Database Configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: ${GCP_CLOUDSQL_HOST}
+      DB_POSTGRESDB_PORT: ${GCP_CLOUDSQL_PORT:-5432}
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n-postgres}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n-postgres}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SSL_MODE: ${GCP_CLOUDSQL_SSL_MODE:-require}
+      DB_POSTGRESDB_POOL_SIZE: 20
+      DB_POSTGRESDB_POOL_SIZE_MAX: 40
+
+      # Logging - Enhanced for production
+      N8N_LOG_LEVEL: ${N8N_LOG_LEVEL:-info}
+      N8N_LOG_OUTPUT: ${N8N_LOG_OUTPUT:-console,file}
+      N8N_LOG_FILE_LOCATION: /home/node/.n8n/logs/
+      N8N_LOG_FILE_COUNT_MAX: 10
+      N8N_LOG_FILE_SIZE_MAX: 16
+
+      # Custom settings - Optimized for workers
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
+      N8N_CUSTOM_EXTENSIONS: /home/node/.n8n/custom
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      N8N_BINARY_DATA_TTL: 1440
+      N8N_BINARY_DATA_STORAGE_PATH: /home/node/.n8n/binaryData
+
+      # Execution settings for workers
+      EXECUTIONS_TIMEOUT: 3600
+      EXECUTIONS_TIMEOUT_MAX: 7200
+
+    volumes:
+      - n8n_data:/home/node/.n8n/shared:ro  # Read-only access to shared data
+      - worker_data:/home/node/.n8n  # Worker-specific writable data
+      - n8n_logs:/home/node/.n8n/logs
+      - n8n_binary:/home/node/.n8n/binaryData
+
+    networks:
+      - n8n_network
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      n8n-main:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:5679/health || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+
+    deploy:
+      replicas: ${N8N_WORKER_REPLICAS:-4}  # Optimized for 4 CPU cores
+      resources:
+        limits:
+          memory: 3G  # Increased for c2-standard-4
+          cpus: '1.0'
+        reservations:
+          memory: 1.5G
+          cpus: '0.5'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: false  # Workers need write access for execution
+    tmpfs:
+      - /tmp:noexec,nosuid,size=256m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "15m"
+        max-file: "8"
+
+  # ────────────────────────────────
+  # Redis Queue & Cache (High-Performance Configuration for c2-standard-4)
+  # ────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: n8n_redis
+    restart: unless-stopped
+    user: "999:999"  # Non-root redis user
+
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-n8n_redis_pass}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 300
+      --tcp-backlog 511
+      --databases 16
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --rdbcompression yes
+      --rdbchecksum yes
+      --stop-writes-on-bgsave-error no
+      --maxclients 10000
+      --io-threads 4
+      --io-threads-do-reads yes
+
+    volumes:
+      - redis_data:/data
+      - ./redis/conf:/usr/local/etc/redis:ro
+
+    ports:
+      - "6379:6379"  # Expose for monitoring
+
+    networks:
+      - n8n_network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G  # Increased for c2-standard-4
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: false  # Redis needs write access
+    tmpfs:
+      - /tmp:noexec,nosuid,size=128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ────────────────────────────────
+  # Monitoring & Metrics (Production-Optimized)
+  # ────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: n8n_prometheus
+    restart: unless-stopped
+    user: "65534:65534"  # nobody user for security
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=8GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.max-connections=512'
+
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - n8n_network
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Increased for better performance
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: false  # Prometheus needs write access for data
+    tmpfs:
+      - /tmp:noexec,nosuid,size=128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "15m"
+        max-file: "5"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: n8n_grafana
+    restart: unless-stopped
+    user: "472:472"  # grafana user for security
+
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: "redis-datasource,grafana-clock-panel,grafana-piechart-panel"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: "strict"
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+
+    ports:
+      - "3000:3000"
+
+    networks:
+      - n8n_network
+
+    depends_on:
+      - prometheus
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          memory: 768M  # Increased for better dashboard performance
+          cpus: '0.5'
+        reservations:
+          memory: 384M
+          cpus: '0.25'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: false  # Grafana needs write access for dashboards
+    tmpfs:
+      - /tmp:noexec,nosuid,size=128m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "15m"
+        max-file: "5"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: n8n_redis_exporter
+    restart: unless-stopped
+    user: "59000:59000"  # Non-root user for security
+
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-n8n_redis_pass}
+      REDIS_EXPORTER_LOG_FORMAT: "json"
+
+    networks:
+      - n8n_network
+
+    depends_on:
+      - redis
+
+    deploy:
+      resources:
+        limits:
+          memory: 256M  # Increased for better monitoring
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ────────────────────────────────
+# Networks (Production-Optimized)
+# ────────────────────────────────
+networks:
+  n8n_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: n8n-bridge
+      com.docker.network.driver.mtu: 1500
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+    labels:
+      - "com.n8n.network=internal"
+  proxy_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: proxy-bridge
+    labels:
+      - "com.n8n.network=proxy"
+
+# ────────────────────────────────
+# Volumes (Production-Ready with Local Storage)
+# Note: For SSD optimization, mount your 100GB SSD and update paths
+# ────────────────────────────────
+volumes:
+  n8n_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=data"
+  n8n_logs:
+    driver: local
+    labels:
+      - "com.n8n.volume=logs"
+  n8n_custom:
+    driver: local
+    labels:
+      - "com.n8n.volume=custom"
+  n8n_binary:
+    driver: local
+    labels:
+      - "com.n8n.volume=binary"
+  worker_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=worker"
+  redis_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=redis"
+  npm_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=nginx"
+  npm_letsencrypt:
+    driver: local
+    labels:
+      - "com.n8n.volume=ssl"
+  prometheus_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=prometheus"
+  grafana_data:
+    driver: local
+    labels:
+      - "com.n8n.volume=grafana"
