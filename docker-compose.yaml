@@ -8,23 +8,41 @@ x-n8n-service: &n8n_service
   env_file: .env
   volumes:
     - n8n_data:/home/node/.n8n
-  # Using external GCP CloudSQL and Redis Cloud - no local dependencies needed
+  deploy:
+    resources:
+      limits:
+        memory: 1G
+        cpus: '0.5'
+      reservations:
+        memory: 512M
+        cpus: '0.25'
 
 services:
-  # postgres and redis services removed - using external GCP CloudSQL and Redis Cloud
-
   n8n:
     <<: *n8n_service
     ports:
       - "5678:5678"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  n8n-worker:
-    <<: *n8n_service
-    command: worker
-    environment:
-      - N8N_WORKER_TYPE=worker
-    depends_on:
-      - n8n
+# n8n-worker:
+  #   <<: *n8n_service
+  #   command: worker
+  #   environment:
+  #     - N8N_WORKER_TYPE=worker
+  #   depends_on:
+  #     n8n:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "ps", "aux", "|", "grep", "-v", "grep", "|", "grep", "n8n"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
 
   nginx:
     image: nginx:alpine
@@ -34,10 +52,11 @@ services:
     volumes:
       - ./nginx/load-balancer/n8n-load-balancer.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - n8n
+      n8n:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "-o", "/dev/null", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
