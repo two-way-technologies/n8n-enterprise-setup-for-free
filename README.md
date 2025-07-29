@@ -32,29 +32,29 @@ Just like Superman can handle multiple crises simultaneously across the globe, t
 
 ```mermaid
 graph TB
-    subgraph "🌐 The Watchtower (Load Balancer)"
-        LB[🛡️ Nginx Proxy<br/>Port 80/443<br/>"The Guardian"]
+    subgraph "🌐 The Watchtower Load Balancer"
+        LB["🛡️ Nginx Proxy<br/>Port 80/443<br/>The Guardian"]
     end
 
-    subgraph "🦸‍♂️ Superman HQ (Main Instance)"
-        MAIN[⚡ n8n Main Instance<br/>Port 5678<br/>"The Leader"]
+    subgraph "🦸‍♂️ Superman HQ Main Instance"
+        MAIN["⚡ n8n Main Instance<br/>Port 5678<br/>The Leader"]
     end
 
-    subgraph "👥 The Justice League (Workers)"
-        W1[🏃‍♂️ Worker 1<br/>"The Flash"]
-        W2[🌊 Worker 2<br/>"Aquaman"]
-        W3[💚 Worker 3<br/>"Green Lantern"]
-        WN[🔄 Worker N<br/>"Scalable Heroes"]
+    subgraph "👥 The Justice League Workers"
+        W1["🏃‍♂️ Worker 1<br/>The Flash"]
+        W2["🌊 Worker 2<br/>Aquaman"]
+        W3["💚 Worker 3<br/>Green Lantern"]
+        WN["🔄 Worker N<br/>Scalable Heroes"]
     end
 
-    subgraph "🧠 Oracle's Database (Storage)"
-        REDIS[📡 Redis Queue<br/>Port 6379<br/>"The Communicator"]
-        POSTGRES[🗄️ PostgreSQL<br/>Port 5432<br/>"The Memory Bank"]
+    subgraph "🧠 Oracle Database Storage"
+        REDIS["📡 Redis Queue<br/>Port 6379<br/>The Communicator"]
+        POSTGRES["🗄️ PostgreSQL<br/>Port 5432<br/>The Memory Bank"]
     end
 
     subgraph "👁️ Watchtower Monitoring"
-        PROM[📊 Prometheus<br/>Port 9090<br/>"The Analyst"]
-        GRAF[📈 Grafana<br/>Port 3000<br/>"The Visualizer"]
+        PROM["📊 Prometheus<br/>Port 9090<br/>The Analyst"]
+        GRAF["📈 Grafana<br/>Port 3000<br/>The Visualizer"]
     end
 
     LB --> MAIN
