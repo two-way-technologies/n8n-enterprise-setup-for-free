@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.yaml"
+COMPOSE_FILE="$PROJECT_DIR/docker compose.yaml"
 
 echo -e "${BLUE}=== n8n Health Check ===${NC}"
 echo "Project Directory: $PROJECT_DIR"
@@ -47,8 +47,8 @@ else
     exit 1
 fi
 
-if command -v docker-compose &> /dev/null; then
-    COMPOSE_VERSION=$(docker-compose --version)
+if command -v docker compose &> /dev/null; then
+    COMPOSE_VERSION=$(docker compose --version)
     print_status "Docker Compose" "OK" "$COMPOSE_VERSION"
 else
     print_status "Docker Compose" "ERROR" "Docker Compose not found"
@@ -62,8 +62,8 @@ echo -e "${BLUE}2. Container Status${NC}"
 cd "$PROJECT_DIR"
 
 # Get container status
-N8N_STATUS=$(docker-compose ps -q n8n 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
-NGINX_STATUS=$(docker-compose ps -q nginx 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
+N8N_STATUS=$(docker compose ps -q n8n 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
+NGINX_STATUS=$(docker compose ps -q nginx 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
 
 if [ "$N8N_STATUS" = "running" ]; then
     print_status "n8n Main" "OK" "Container running"
@@ -140,7 +140,7 @@ echo ""
 # Check logs for errors
 echo -e "${BLUE}5. Recent Logs Analysis${NC}"
 if [ "$N8N_STATUS" = "running" ]; then
-    ERROR_COUNT=$(docker-compose logs n8n --tail=50 2>/dev/null | grep -i error | wc -l)
+    ERROR_COUNT=$(docker compose logs n8n --tail=50 2>/dev/null | grep -i error | wc -l)
     if [ "$ERROR_COUNT" -eq 0 ]; then
         print_status "n8n Logs" "OK" "No recent errors found"
     else
@@ -155,7 +155,7 @@ echo ""
 # Resource usage
 echo -e "${BLUE}6. Resource Usage${NC}"
 if [ "$N8N_STATUS" = "running" ]; then
-    N8N_CONTAINER_ID=$(docker-compose ps -q n8n)
+    N8N_CONTAINER_ID=$(docker compose ps -q n8n)
     if [ -n "$N8N_CONTAINER_ID" ]; then
         STATS=$(docker stats --no-stream --format "table {{.CPUPerc}}\t{{.MemUsage}}" "$N8N_CONTAINER_ID" | tail -n 1)
         print_status "n8n Resources" "OK" "CPU/Memory: $STATS"
@@ -172,10 +172,10 @@ if [ "$N8N_STATUS" = "running" ] && curl -f -s -o /dev/null http://localhost:567
     echo "  - Nginx Proxy: http://localhost:80"
 else
     echo -e "${RED}✗ n8n has issues that need attention${NC}"
-    echo "  - Check container logs: docker-compose logs n8n"
-    echo "  - Restart services: docker-compose restart"
+    echo "  - Check container logs: docker compose logs n8n"
+    echo "  - Restart services: docker compose restart"
 fi
 
 echo ""
-echo "For detailed logs, run: docker-compose logs"
-echo "To restart services, run: docker-compose restart"
+echo "For detailed logs, run: docker compose logs"
+echo "To restart services, run: docker compose restart"

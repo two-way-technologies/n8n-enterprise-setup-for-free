@@ -100,7 +100,7 @@ This is a production-ready, horizontally scalable Docker Compose setup for n8n a
 ./scripts/deploy-scaled.sh
 
 # Or manual deployment
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. Scale Workers
@@ -169,13 +169,13 @@ docker-compose up -d
 #### n8n Won't Start
 ```bash
 # Check database connection
-docker-compose logs postgres
+docker compose logs postgres
 
 # Check n8n logs
-docker-compose logs n8n
+docker compose logs n8n
 
 # Restart services
-docker-compose restart
+docker compose restart
 ```
 
 #### Database Connection Issues
@@ -184,8 +184,8 @@ docker-compose restart
 docker exec n8n_postgres pg_isready -U n8n-postgres
 
 # Reset database
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+docker compose up -d
 ```
 
 ## 🛡️ Security

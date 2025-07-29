@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.yaml"
+COMPOSE_FILE="$PROJECT_DIR/docker compose.yaml"
 
 # Function to print status
 print_status() {
@@ -56,8 +56,8 @@ check_queue_mode() {
             echo "To enable queue mode:"
             echo "1. Edit .env file: EXECUTIONS_MODE=queue"
             echo "2. Set N8N_WORKERS_ENABLED=true"
-            echo "3. Uncomment n8n-worker service in docker-compose.yaml"
-            echo "4. Restart: docker-compose restart"
+            echo "3. Uncomment n8n-worker service in docker compose.yaml"
+            echo "4. Restart: docker compose restart"
             return 1
         fi
     else
@@ -70,7 +70,7 @@ check_queue_mode() {
 # Function to get current worker count
 get_worker_count() {
     cd "$PROJECT_DIR"
-    docker-compose ps -q n8n-worker 2>/dev/null | wc -l
+    docker compose ps -q n8n-worker 2>/dev/null | wc -l
 }
 
 # Function to scale workers
@@ -87,20 +87,20 @@ scale_workers() {
     echo -e "${BLUE}=== Scaling n8n Workers ===${NC}"
     echo "Target worker count: $target_count"
     
-    # Check if workers are commented out in docker-compose.yaml
+    # Check if workers are commented out in docker compose.yaml
     if grep -q "^# n8n-worker:" "$COMPOSE_FILE"; then
-        print_status "WARNING" "n8n-worker service is commented out in docker-compose.yaml"
+        print_status "WARNING" "n8n-worker service is commented out in docker compose.yaml"
         echo "Please uncomment the n8n-worker service first."
         return 1
     fi
     
     if [ "$target_count" -eq 0 ]; then
         print_status "OK" "Stopping all workers..."
-        docker-compose stop n8n-worker 2>/dev/null || true
-        docker-compose rm -f n8n-worker 2>/dev/null || true
+        docker compose stop n8n-worker 2>/dev/null || true
+        docker compose rm -f n8n-worker 2>/dev/null || true
     else
         print_status "OK" "Scaling to $target_count workers..."
-        docker-compose up -d --scale n8n-worker="$target_count" n8n-worker
+        docker compose up -d --scale n8n-worker="$target_count" n8n-worker
         
         # Wait a moment for containers to start
         sleep 3
@@ -130,7 +130,7 @@ show_status() {
     fi
     
     # Show main instance status
-    N8N_STATUS=$(docker-compose ps n8n 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Not running")
+    N8N_STATUS=$(docker compose ps n8n 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Not running")
     echo "Main Instance: $N8N_STATUS"
     
     # Show worker status
@@ -140,7 +140,7 @@ show_status() {
     if [ "$WORKER_COUNT" -gt 0 ]; then
         echo ""
         echo "Worker Details:"
-        docker-compose ps n8n-worker 2>/dev/null || echo "No workers found"
+        docker compose ps n8n-worker 2>/dev/null || echo "No workers found"
     fi
     
     echo ""
@@ -148,7 +148,7 @@ show_status() {
     # Show resource usage if containers are running
     if [ "$WORKER_COUNT" -gt 0 ]; then
         echo "Resource Usage:"
-        docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker-compose ps -q n8n-worker 2>/dev/null) 2>/dev/null || echo "Unable to get resource stats"
+        docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker compose ps -q n8n-worker 2>/dev/null) 2>/dev/null || echo "Unable to get resource stats"
     fi
 }
 

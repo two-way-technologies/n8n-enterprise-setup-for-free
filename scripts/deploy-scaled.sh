@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.yaml"
+COMPOSE_FILE="$PROJECT_DIR/docker compose.yaml"
 
 echo -e "${BLUE}=== n8n Scaled Deployment ===${NC}"
 echo "Project Directory: $PROJECT_DIR"
@@ -45,7 +45,7 @@ else
     exit 1
 fi
 
-if command -v docker-compose &> /dev/null; then
+if command -v docker compose &> /dev/null; then
     print_status "OK" "Docker Compose is installed"
 else
     print_status "ERROR" "Docker Compose not found. Please install Docker Compose first."
@@ -65,9 +65,9 @@ echo ""
 echo -e "${BLUE}2. Stopping Existing Containers${NC}"
 cd "$PROJECT_DIR"
 
-if docker-compose ps -q | grep -q .; then
+if docker compose ps -q | grep -q .; then
     print_status "OK" "Stopping existing containers..."
-    docker-compose down
+    docker compose down
 else
     print_status "OK" "No existing containers to stop"
 fi
@@ -77,14 +77,14 @@ echo ""
 # Pull latest images
 echo -e "${BLUE}3. Pulling Latest Images${NC}"
 print_status "OK" "Pulling n8n:latest..."
-docker-compose pull
+docker compose pull
 
 echo ""
 
 # Start services
 echo -e "${BLUE}4. Starting Services${NC}"
 print_status "OK" "Starting n8n main instance..."
-docker-compose up -d n8n
+docker compose up -d n8n
 
 # Wait for n8n to be healthy
 echo "Waiting for n8n to be healthy..."
@@ -92,7 +92,7 @@ TIMEOUT=120
 COUNTER=0
 
 while [ $COUNTER -lt $TIMEOUT ]; do
-    if docker-compose ps n8n | grep -q "healthy"; then
+    if docker compose ps n8n | grep -q "healthy"; then
         print_status "OK" "n8n main instance is healthy"
         break
     fi
@@ -108,13 +108,13 @@ done
 if [ $COUNTER -ge $TIMEOUT ]; then
     print_status "ERROR" "n8n failed to become healthy within $TIMEOUT seconds"
     echo "Checking logs..."
-    docker-compose logs n8n --tail=20
+    docker compose logs n8n --tail=20
     exit 1
 fi
 
 # Start nginx
 print_status "OK" "Starting nginx load balancer..."
-docker-compose up -d nginx
+docker compose up -d nginx
 
 echo ""
 
@@ -140,7 +140,7 @@ echo ""
 
 # Display status
 echo -e "${BLUE}6. Deployment Status${NC}"
-docker-compose ps
+docker compose ps
 
 echo ""
 
@@ -154,9 +154,9 @@ echo "  • n8n Web Interface: http://localhost:5678"
 echo "  • Nginx Load Balancer: http://localhost:80"
 echo ""
 echo "Management Commands:"
-echo "  • View logs: docker-compose logs"
-echo "  • Stop services: docker-compose down"
-echo "  • Restart services: docker-compose restart"
+echo "  • View logs: docker compose logs"
+echo "  • Stop services: docker compose down"
+echo "  • Restart services: docker compose restart"
 echo "  • Health check: ./scripts/health-check.sh"
 echo ""
 
@@ -167,8 +167,8 @@ if [ "$N8N_WORKERS_ENABLED" = "true" ]; then
     echo "To enable workers with queue mode:"
     echo "  1. Set EXECUTIONS_MODE=queue in .env"
     echo "  2. Set N8N_WORKERS_ENABLED=true in .env"
-    echo "  3. Uncomment n8n-worker service in docker-compose.yaml"
-    echo "  4. Run: docker-compose up -d"
+    echo "  3. Uncomment n8n-worker service in docker compose.yaml"
+    echo "  4. Run: docker compose up -d"
     echo ""
 fi
 

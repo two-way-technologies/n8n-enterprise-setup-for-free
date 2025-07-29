@@ -51,7 +51,7 @@ get_container_stats() {
     local service=$1
     cd "$PROJECT_DIR"
     
-    local container_id=$(docker-compose ps -q "$service" 2>/dev/null)
+    local container_id=$(docker compose ps -q "$service" 2>/dev/null)
     if [ -n "$container_id" ]; then
         docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" "$container_id" 2>/dev/null
     else
@@ -79,17 +79,17 @@ monitor_performance() {
         printf "%-15s %-10s %-15s %-20s %-15s\n" "-------" "------" "---" "------" "-----------"
         
         # n8n main
-        local n8n_status=$(docker-compose ps n8n 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Down")
+        local n8n_status=$(docker compose ps n8n 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Down")
         local n8n_stats=$(get_container_stats "n8n")
         printf "%-15s %-10s %s\n" "n8n" "$n8n_status" "$n8n_stats" | awk '{printf "%-15s %-10s %-15s %-20s %-15s\n", $1, $2, $3, $4, $5}'
         
         # nginx
-        local nginx_status=$(docker-compose ps nginx 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Down")
+        local nginx_status=$(docker compose ps nginx 2>/dev/null | grep -v "Name" | awk '{print $4}' || echo "Down")
         local nginx_stats=$(get_container_stats "nginx")
         printf "%-15s %-10s %s\n" "nginx" "$nginx_status" "$nginx_stats" | awk '{printf "%-15s %-10s %-15s %-20s %-15s\n", $1, $2, $3, $4, $5}'
         
         # Workers (if any)
-        local worker_count=$(docker-compose ps -q n8n-worker 2>/dev/null | wc -l)
+        local worker_count=$(docker compose ps -q n8n-worker 2>/dev/null | wc -l)
         if [ "$worker_count" -gt 0 ]; then
             printf "%-15s %-10s %-15s %-20s %-15s\n" "workers" "$worker_count active" "..." "..." "..."
         fi
@@ -171,12 +171,12 @@ show_all_metrics() {
     # Container status
     echo -e "${BLUE}1. Container Status${NC}"
     cd "$PROJECT_DIR"
-    docker-compose ps
+    docker compose ps
     echo ""
     
     # Resource usage
     echo -e "${BLUE}2. Resource Usage${NC}"
-    local containers=$(docker-compose ps -q 2>/dev/null)
+    local containers=$(docker compose ps -q 2>/dev/null)
     if [ -n "$containers" ]; then
         docker stats --no-stream $containers
     else
@@ -233,12 +233,12 @@ analyze_logs() {
     cd "$PROJECT_DIR"
     
     echo -e "${BLUE}Recent n8n logs (last 50 lines):${NC}"
-    docker-compose logs n8n --tail=50
+    docker compose logs n8n --tail=50
     echo ""
     
     echo -e "${BLUE}Error Analysis:${NC}"
-    local error_count=$(docker-compose logs n8n --tail=100 2>/dev/null | grep -i error | wc -l)
-    local warning_count=$(docker-compose logs n8n --tail=100 2>/dev/null | grep -i warning | wc -l)
+    local error_count=$(docker compose logs n8n --tail=100 2>/dev/null | grep -i error | wc -l)
+    local warning_count=$(docker compose logs n8n --tail=100 2>/dev/null | grep -i warning | wc -l)
     
     echo "Errors in last 100 log lines: $error_count"
     echo "Warnings in last 100 log lines: $warning_count"
@@ -246,13 +246,13 @@ analyze_logs() {
     if [ "$error_count" -gt 0 ]; then
         echo ""
         echo -e "${RED}Recent Errors:${NC}"
-        docker-compose logs n8n --tail=100 2>/dev/null | grep -i error | tail -5
+        docker compose logs n8n --tail=100 2>/dev/null | grep -i error | tail -5
     fi
     
     if [ "$warning_count" -gt 0 ]; then
         echo ""
         echo -e "${YELLOW}Recent Warnings:${NC}"
-        docker-compose logs n8n --tail=100 2>/dev/null | grep -i warning | tail -5
+        docker compose logs n8n --tail=100 2>/dev/null | grep -i warning | tail -5
     fi
 }
 
