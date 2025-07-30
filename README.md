@@ -1,4 +1,5 @@
 # 🦸‍♂️ n8n Superman AI - The Ultimate Automation Fortress
+## Enterprise N8N Setup for on community version
 
 <div align="center">
 
